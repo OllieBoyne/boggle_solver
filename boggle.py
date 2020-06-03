@@ -20,7 +20,7 @@ class Boggle:
 
         self.width = width = int(nblocks ** .5)
 
-        assert nblocks ** 0.5 == width, f"nblocks = {nblocks} is not a square number. {board}"
+        assert nblocks == width ** 2, f"nblocks = {nblocks} is not a square number. {board}"
 
     def gen(self):
         """Generate a width x width valid arrangement"""
@@ -38,5 +38,6 @@ class Boggle:
         return out
 
 
-b = Boggle()
-print(b.gen())
+if __name__ == "__main__":
+    b = Boggle()
+    print(b.gen())
