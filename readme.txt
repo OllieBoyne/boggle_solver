@@ -1,0 +1,1 @@
+Collins Official SCRABBLE Words 2019 Edition used. Downloaded from NASPA Zyzzyva 3.2.1
