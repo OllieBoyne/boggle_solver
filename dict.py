@@ -10,8 +10,11 @@ class Dictionary:
 
 		with open(os.path.join("dict", src+".json")) as infile:
 			self.lookup = json.load(infile)
+
 		self.size = len(self.lookup)
 		self.tree = self.make_tree()
+
+		self.max_length = max(map(len, self.lookup.keys()))
 
 	def __len__(self):
 		return self.size
