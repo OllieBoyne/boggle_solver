@@ -75,19 +75,18 @@ class Dictionary:
 
 
 class Solver:
-	def __init__(self, dictionary, board):
-		self.d:Dictionary = dictionary
-		self.board = board
+	def __init__(self, dict_src = "CSW19"):
+		self.d = Dictionary(dict_src)
 
-	def solve(self):
-		width = len(self.board)
+	def solve(self, board):
+		width = len(board)
 		starts = product(range(width), repeat=2)
 
 		tree_head = self.d.tree
 		# starts contains the coordinates for each tile in the grid
 		all_words = {}
 		for x, y in starts:
-			c = self.board[y][x]
+			c = board[y][x]
 			prev_node = tree_head.child_with_value(c) # guaranteed to already exist
 			# each word is stored as [word_string, current_coords, [used_tiles], prev_node]
 			first_word = [c, (x, y), [(x, y)], prev_node]
@@ -103,7 +102,7 @@ class Solver:
 					used_tiles = word[2]
 					prev_node = word[3]
 					for i, j in get_next_moves(word_x, word_y, width, used_tiles):
-						new_c = self.board[j][i]
+						new_c = board[j][i]
 						next_node = prev_node.child_with_value(new_c)
 
 						if next_node is not None:
@@ -118,7 +117,6 @@ class Solver:
 								# all_words stores the word, and all paths to make that word
 								all_words[new_string] = all_words.get(new_string, []) + [new_path]
 
-		print(all_words)
 		return all_words
 
 
@@ -129,7 +127,7 @@ if __name__ == "__main__":
 	d = Dictionary()
 	print(f"Time to make tree: {perf_counter() - t0}")
 
-	s = Solver(d, board)
+	s = Solver()
 	t1 = perf_counter()
 	s.solve()
 	print(f"Time to solve: {perf_counter() - t1}")
