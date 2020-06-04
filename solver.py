@@ -20,7 +20,6 @@ def get_next_moves(x, y, width, used_tiles):
 			yield X, Y
 
 
-
 class Solver:
 	def __init__(self, dict_src = "CSW19"):
 		self.d = Dictionary(dict_src)
@@ -34,12 +33,9 @@ class Solver:
 		all_words = {}
 		for x, y in starts:
 			c = board[y][x]
-			prev_node = tree_head.child_with_value(c) # guaranteed to already exist
-			
-			# words starting with q start with qu
-			if c == "Q":
-				prev_node = prev_node.child_with_value("U")
-				c = "QU"
+			if c == "Q": c = "QU"
+			prev_node = tree_head[c] # guaranteed to already exist
+
 
 			# each word is stored as [word_string, current_coords, [used_tiles], prev_node]
 			first_word = [c, (x, y), [(x, y)], prev_node]
@@ -56,20 +52,17 @@ class Solver:
 					prev_node = word[3]
 					for i, j in get_next_moves(word_x, word_y, width, used_tiles):
 						new_c = board[j][i]
-						next_node = prev_node.child_with_value(new_c)
+						if new_c == "Q":
+							new_c = "QU"
+						next_node = prev_node.get(new_c)
 
 						if next_node is not None:
-							# treat 'Q' as 'Qu'
-							if new_c == "Q":
-								next_node = next_node.child_with_value("U")
-								new_c = "QU"
-
 							new_word = [word_string + new_c, (i, j), used_tiles + [(i, j)], next_node]
 							cur_words.append(new_word)
 
 							# check if this is a real word
 							# => has no children, or is in the dictionary
-							if not next_node.children or new_word[0] in self.d:
+							if not next_node or new_word[0] in self.d:
 								new_string = new_word[0]
 								new_path = new_word[2]
 								# all_words stores the word, and all paths to make that word
