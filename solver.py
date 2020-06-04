@@ -19,6 +19,15 @@ def get_next_moves(x, y, width, used_tiles):
 		if 0 <= X < width and 0 <= Y < width and (X, Y) not in used_tiles:
 			yield X, Y
 
+def point_encoder(point, width=5):
+	"""Encodes coord as integer"""
+	x, y = point
+	return y*width + x
+
+def point_decoder(val, width=5):
+	"""Extracts 2d coord from given integer"""
+	x, y = val % width, val//width
+	return (x,y)
 
 class Solver:
 	def __init__(self, dict_src = "CSW19"):
@@ -69,8 +78,6 @@ class Solver:
 								all_words[new_string] = all_words.get(new_string, []) + [new_path]
 
 		return all_words
-
-
 
 if __name__ == "__main__":
 	board = Boggle().gen()

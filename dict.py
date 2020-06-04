@@ -21,7 +21,6 @@ class Dictionary:
 
 	def make_tree(self):
 		"""Creates a tree that contains all words in self.lookup"""
-		longest_word = max(self.lookup.values())
 		tree_head = {} # top of tree is an empty string
 
 		for word in self.lookup.keys():
