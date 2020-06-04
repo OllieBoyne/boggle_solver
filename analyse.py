@@ -6,8 +6,9 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import cm, colors
 from tqdm import tqdm
+import multiprocessing as mp
 
-def run(n=1, board_id=None):
+def run(n=1, board_id=None, processors=5, chunk_size=1000, batch_size = 5000):
 	"""
 	Solves several generated boggle configs
 
@@ -24,29 +25,27 @@ def run(n=1, board_id=None):
 
 	board.width = 5
 
+	solver = Solver() # Load solver
+
+	pool = mp.Pool(processors)
+
+	# produce array of batch sizes
+	batches = [batch_size] * (n//batch_size)
+	if n%batch_size>0: batches += [n % batch_size]
+
 	layouts = []
 	solutions = []
+	with tqdm(total=n) as progress:
+		for batch_size in batches:
+			batch_layouts = [board.gen() for i in range(batch_size)]
+			batch_sols = pool.map(solver.solve, batch_layouts, chunksize=chunk_size)
 
-	solver = Solver()
+			layouts += batch_layouts
+			solutions += batch_sols
 
-	points = np.zeros((n, board.width, board.width))
+			progress.update(batch_size)
 
-	with tqdm(np.arange(n)) as tqdm_iterator:
-		for i in tqdm_iterator:
-			lay = board.gen()
-			layouts.append(lay)
-
-			sol = solver.solve(lay)
-			solutions.append(sol)
-
-			# add all points to heatmap
-			for word in sol:
-				val = len(word) - 3
-				for route in sol[word]:
-					for (x,y) in route:
-						points[i, y, x] += val
-
-	return layouts, points, solutions
+	return layouts, solutions
 
 
 def board_heatmap(ax, data, cmap="jet"):
@@ -58,18 +57,21 @@ def board_heatmap(ax, data, cmap="jet"):
 def point_distribution():
 	"""Run experiment to measure distribution of points across board"""
 
-	n = 1000
-	layouts, points, solutions = run(n=n)
+	n = 50000
+	layouts, solutions = run(n=n, processors=n_cpu)
+
+	# calculate point distribution throughout board
+	points = np.zeros((n, 5, 5))
+	for i, sol in enumerate(solutions):
+		for word in sol:
+			val = len(word) - 3
+			all_coords = set([coord for route in sol[word] for coord in route]) # all UNIQUE coords in routes
+			for coord in all_coords:
+				x, y = coord
+				points[i, y, x] += val
 
 	means = points.mean(axis=0)
 	vars = np.std(points, axis=0)
-
-	for i in range(1000):
-		if (points[i] == 0 ).any():
-			print(layouts[i])
-			print(points[i])
-			raise ValueError
-
 	inactive = np.mean(points == 0, axis=0)
 
 	cmap = "jet"
@@ -84,10 +86,40 @@ def point_distribution():
 	plt.show()
 
 
+def word_distribution():
+	"""Run experiment to measure the distribution of high scoring/populous words across games"""
+
+	n = 250000
+	layouts, points, solutions = run(n=n)
+
+	### Make dict of each word : num appearances (repeats ignored)
+	appearances = {} # All valid words : num appearances (repeats ignored)
+	apperances_longest = {} # word : num appearances as longest word(s) in game (repeats ignored)
+	for i, sol in enumerate(solutions):
+		if len(sol) == 0: continue
+		max_length = max([len(word) for word in sol]) # length of longest word(s)
+		for word in sol:
+			add_to = [appearances] # dictionaries to add to
+			if len(word) == max_length:
+				add_to += [apperances_longest]
+			for record in add_to:
+				record[word] = record.get(word, 0) + 1
+
+	ranked_by_appearance = sorted(appearances.keys(), key=lambda x: appearances[x])
+	ranked_by_appearance_longest = sorted(apperances_longest.keys(), key=lambda x: apperances_longest[x])
+
+	# print(apperances_longest)
+
+	print({k: apperances_longest[k] for k in ranked_by_appearance_longest[-10:]})
+
 ### GRAPHICS:
 # MEAN AND STD DEV FOR 5X5, 10000 TRIALS
 # MOST COMMON 'LONGEST WORD' FOR 5X5, 10000 TRIALS
 # AVG POINTS AVAILABLE AGAINST BOARD SIZE
 
 if __name__ == "__main__":
+	n_cpu = mp.cpu_count()
+	print("Number of processors: ", n_cpu)
+
 	point_distribution()
+	# word_distribution()

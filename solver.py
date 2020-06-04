@@ -3,12 +3,12 @@
 Inputs:
 list of strings. List length, and string length are equal."""
 
-import json, os
-from typing import List
+
 from itertools import product
 from time import perf_counter
 
 from boggle import Boggle
+from dict import Dictionary
 
 
 def get_next_moves(x, y, width, used_tiles):
@@ -19,59 +19,6 @@ def get_next_moves(x, y, width, used_tiles):
 		if 0 <= X < width and 0 <= Y < width and (X, Y) not in used_tiles:
 			yield X, Y
 
-
-
-class Node:
-	def __init__(self, value):
-		self.v = value
-		self.children: List['Node'] = []
-
-	def child_with_value(self, letter):
-		"""Returns the child with value `letter`."""
-		for child in self.children:
-			if child.v == letter:
-				return child
-		# if none exists:
-		return None
-
-
-	def add_child(self, other: 'Node'):
-		self.children.append(other)
-
-	def __repr__(self):
-		return self.v
-
-
-class Dictionary:
-
-	def __init__(self, src="CSW19"):
-
-		with open(os.path.join("dict", src+".json")) as infile:
-			self.lookup = json.load(infile)
-		self.size = len(self.lookup)
-		self.tree = self.make_tree()
-
-	def __len__(self):
-		return self.size
-
-	def __contains__(self, word):
-		return word in self.lookup
-
-	def make_tree(self):
-		"""Creates a tree that contains all words in self.lookup"""
-		longest_word = max(self.lookup.values())
-		tree_head = Node('') # top of tree is an empty string
-
-		for word in self.lookup.keys():
-			prev_node = tree_head
-			for c in word:
-				new_node = prev_node.child_with_value(c)
-				if new_node is None:
-					new_node = Node(c)
-					prev_node.add_child(new_node)
-				prev_node = new_node
-
-		return tree_head
 
 
 class Solver:
