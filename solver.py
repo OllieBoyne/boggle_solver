@@ -35,6 +35,12 @@ class Solver:
 		for x, y in starts:
 			c = board[y][x]
 			prev_node = tree_head.child_with_value(c) # guaranteed to already exist
+			
+			# words starting with q start with qu
+			if c == "Q":
+				prev_node = prev_node.child_with_value("U")
+				c = "QU"
+
 			# each word is stored as [word_string, current_coords, [used_tiles], prev_node]
 			first_word = [c, (x, y), [(x, y)], prev_node]
 			cur_words = [first_word]
@@ -53,6 +59,11 @@ class Solver:
 						next_node = prev_node.child_with_value(new_c)
 
 						if next_node is not None:
+							# treat 'Q' as 'Qu'
+							if new_c == "Q":
+								next_node = next_node.child_with_value("U")
+								new_c = "QU"
+
 							new_word = [word_string + new_c, (i, j), used_tiles + [(i, j)], next_node]
 							cur_words.append(new_word)
 
@@ -70,11 +81,7 @@ class Solver:
 
 if __name__ == "__main__":
 	board = Boggle().gen()
-	t0 = perf_counter()
-	d = Dictionary()
-	print(f"Time to make tree: {perf_counter() - t0}")
-
 	s = Solver()
 	t1 = perf_counter()
-	s.solve()
+	print(s.solve(board))
 	print(f"Time to solve: {perf_counter() - t1}")
