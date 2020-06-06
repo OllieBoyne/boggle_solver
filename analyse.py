@@ -12,8 +12,9 @@ from matplotlib.ticker import FuncFormatter
 from tqdm import tqdm
 import multiprocessing as mp
 import os, json
+from time import perf_counter
 
-def run(n=1, board_id=None, processors=5, chunk_size=2000, batch_size = 10000, outname="2003super5x5"):
+def run(n, pool, board_id=None, processors=5, chunk_size=500, batch_size = 2000, outname="2003super5x5", save=True):
 	"""
 	Solves several generated boggle configs
 
@@ -34,8 +35,6 @@ def run(n=1, board_id=None, processors=5, chunk_size=2000, batch_size = 10000, o
 
 	solver = Solver() # Load solver
 	max_word_length = solver.d.max_length
-
-	pool = mp.Pool(processors)
 
 	# produce array of batch sizes
 	batches = [batch_size] * (n//batch_size)
@@ -68,13 +67,14 @@ def run(n=1, board_id=None, processors=5, chunk_size=2000, batch_size = 10000, o
 			progress.update(batch_size)
 
 
-	out = dict(layouts = layouts,
-						solutions = solutions,
-						points = points)
+	if save:
+		out = dict(layouts = layouts,
+							solutions = solutions,
+							points = points)
 
-	np.savez_compressed(os.path.join("results", outname),
-						width = 5, height = 5, **out
-						)
+		np.savez_compressed(os.path.join("results", outname),
+							width = 5, height = 5, **out
+							)
 
 def load_run(run, load_keys = ["layouts", "solutions", "points", "width", "height"]):
 	res = {}
@@ -136,6 +136,7 @@ def word_distribution(run="2003super5x5"):
 	### Make dict of each word : num appearances (repeats ignored)
 	appearances = {}  # All valid words : num appearances (repeats ignored)
 	apperances_longest = {}  # word : num appearances as longest word(s) in game (repeats ignored)
+	board_max_length = np.zeros(n) # maximum word length for each board
 
 	# This method requires batching, as insufficient memory for large datasets
 	batch_size = min(1000, n//10)
@@ -143,7 +144,7 @@ def word_distribution(run="2003super5x5"):
 	batches = np.array_split(solutions, n_batches)
 
 	with tqdm(total=n) as progress_bar:
-		for batch in batches:
+		for b, batch in enumerate(batches):
 			# fast method for getting lengths of whole array. src: https://stackoverflow.com/questions/44587746/length-of-each-string-in-a-numpy-array
 			A = batch.astype(np.str)
 			v = A.view(np.uint32).reshape(A.size, -1)
@@ -152,6 +153,7 @@ def word_distribution(run="2003super5x5"):
 			l = l.reshape(A.shape)
 
 			longest_lengths = np.max(l, axis=1) # longest word per board
+			board_max_length[b*batch_size:b*batch_size+len(batch)] = longest_lengths
 			longest_words_idxs = np.argwhere(l == longest_lengths[:, None]) # (board, pos) for each longest word occurance
 
 			for board, pos in longest_words_idxs:
@@ -163,9 +165,15 @@ def word_distribution(run="2003super5x5"):
 	# ranked_by_appearance = sorted(appearances.keys(), key=lambda x: appearances[x])
 	ranked_by_appearance_longest = sorted(apperances_longest.keys(), key=lambda x: apperances_longest[x])
 
-	# print({k: apperances_longest[k] for k in ranked_by_appearance[-10:]})
 	print("10 most common: ", {k: apperances_longest[k] for k in ranked_by_appearance_longest[-11:]})
 	print("10 least common: ", {k: apperances_longest[k] for k in ranked_by_appearance_longest[:10]})
+
+	# Count occurences of each length of longest word
+	word_lengths = np.arange(20)
+	counts = np.array([(board_max_length==i).sum() for i in word_lengths])
+	plt.bar(word_lengths, counts)
+	print(" ".join([f"({j / n}, {i})[{j}]" for i, j in zip(word_lengths, counts)]))
+	plt.show()
 
 def inactive_distribution(run="2003super5x5"):
 	"""Run experiment to measure the distribution of inactive tiles (tiles with no valid words connected)"""
@@ -183,8 +191,66 @@ def inactive_distribution(run="2003super5x5"):
 	count_by_ninactive = np.array([(inactive_by_game==i).sum() for i in ninactive]) # list of number of games with exactly <idx> inactive tiles
 
 	plt.bar(ninactive, count_by_ninactive / n)
-	print(" ".join([f"({j/1e6}, {i})[{j}]" for i, j in zip(ninactive, count_by_ninactive)]))
+	print(" ".join([f"({j/n}, {i})[{j}]" for i, j in zip(ninactive, count_by_ninactive)]))
 	plt.show()
+
+def board_value_distribution(run="2003super5x5", load=True):
+	"""Experiment to measure the point value of each board. Produces histogram of data.
+	If load = True, use preloaded solutions"""
+
+	if not load:
+		res = load_run(run, load_keys=["solutions", "layouts"])
+		solutions, layouts = res['solutions'], res['layouts']
+
+		n = len(solutions)
+
+		### Make dict of each point value : number of occurences
+		out = np.zeros(5000)
+
+		# This method requires batching, as insufficient memory for large datasets
+		batch_size = min(1000, n // 10)
+		n_batches = n // batch_size
+		batches = np.array_split(solutions, n_batches)
+
+		all_lengths = np.zeros(n)
+
+		with tqdm(total=n) as progress_bar:
+			for b, batch in enumerate(batches):
+				# fast method for getting lengths of whole array. src: https://stackoverflow.com/questions/44587746/length-of-each-string-in-a-numpy-array
+				A = batch.astype(np.str)
+				v = A.view(np.uint32).reshape(A.size, -1)
+				l = np.argmin(v, 1)
+				l[v[np.arange(len(v)), l] > 0] = v.shape[-1]
+				l = l.reshape(A.shape)
+
+				points = (np.clip(l - 3, a_min=0, a_max=100)).sum(axis=1) # number of points available per board
+
+				# if 2945 in points:
+				# 	idx = np.argwhere(points == 2945)
+				# 	glob_idx = b*batch_size + idx, layouts
+				# 	print("FOUND: ", glob_idx)
+				# 	print(layouts[glob_idx])
+
+				all_lengths[b*batch_size:b*batch_size+len(batch)] = points
+				np.add.at(out, points, np.ones(len(points))) # Add up all points
+
+				progress_bar.update(len(batch))
+
+		### save as output
+		np.save(os.path.join("outputs", f"board_values_{run}.npy"), out)
+
+	else:
+		# try to load csv
+		csv_src=os.path.join("outputs", f"board_values_{run}.csv")
+
+		## load numpy and dump as csv
+		data = np.load(os.path.join("outputs", f"board_values_{run}.npy")).astype(np.uint64)
+		n_points = np.arange(data.size)
+		np.savetxt(csv_src, np.column_stack([n_points, data]), delimiter=",", fmt='%d')
+
+		print("Mean score", (n_points * data).sum()/(data.sum()))
+		plt.bar(np.arange(data.size), data)
+		plt.show()
 
 ### GRAPHICS:
 # MEAN AND STD DEV FOR 5X5, 10000 TRIALS
@@ -192,13 +258,65 @@ def inactive_distribution(run="2003super5x5"):
 # AVG POINTS AVAILABLE AGAINST BOARD SIZE
 # % distribution of number of inactive tiles
 
+
+# Best score - 2945 (entry 991208):
+# E A S A N
+# B L R M E
+# A U I E E
+# S T S N S
+# N U R I G
+
+def time_running():
+	"""Time different run configurations"""
+
+	batch_sizes = [1000, 2000, 5000, 10000, 20000]
+	fracs = [0.01, 0.1, 0.2, 0.5, 0.75, 1.0]
+
+	times = []
+	pool = mp.Pool(n_cpu)
+
+	for b in batch_sizes:
+		batch_times = []
+		for f in fracs:
+			t0 = perf_counter()
+			n = int(5000 + 1.5 * b)
+			run(n=n, pool=pool, processors=n_cpu, batch_size=b, chunk_size=int(b*f), save=False)
+			batch_times.append(n/(perf_counter()-t0)) # store iterations per second
+		times.append(batch_times)
+
+	with open(os.path.join("results", "timing_expmt.csv"), "w", newline="") as outfile:
+		lines = ["Batch size, Chunk frac, Elapsed time\n"]
+		lines += [f"{b},{f},{times[i][j]:.2f}\n" for i, b in enumerate(batch_sizes) for j, f in enumerate(fracs)]
+		outfile.writelines(lines)
+
+def time_viewer():
+	"""View timing expmt"""
+	data = {} # dict of batch size : [chunk size, time]
+
+	with open(os.path.join("results", "timing_expmt.csv")) as infile:
+		raw_data = infile.readlines()[1:]
+		for entry in raw_data:
+			b, c, t = map(float, entry.split(","))
+			data[b] = data.get(b, []) + [(c, t)]
+
+	for b in data:
+		plt.plot(*zip(*data[b]), label=f"batch size {int(b/1000)}k")
+
+	plt.legend()
+	plt.show()
+
 if __name__ == "__main__":
 
 	## RUN
-	# n_cpu = mp.cpu_count()
-	# print("Number of processors: ", n_cpu)
-	# run(n=2000, processors=n_cpu, outname="2003super5x5_small")
+	n_cpu = mp.cpu_count()
+	print("Number of processors: ", n_cpu)
+	# pool = mp.Pool(n_cpu)
+	# run(n=60000, processors=n_cpu, outname="2003super5x5")
 
-	point_distribution()
+	# time_running()
+	time_viewer()
+
+	# point_distribution()
 	# word_distribution(run="2003super5x5")
 	# inactive_distribution()
+	# board_value_distribution(run="2003super5x5", load=False)
