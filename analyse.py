@@ -269,8 +269,8 @@ def board_value_distribution(run="2003super5x5", load=True):
 def time_running():
 	"""Time different run configurations"""
 
-	batch_sizes = [1000, 2000, 5000, 10000, 20000]
-	fracs = [0.01, 0.1, 0.2, 0.5, 0.75, 1.0]
+	batch_sizes = [20000]
+	fracs = [0.02, 0.025, 0.0275, 0.03, 0.0325, 0.035, 0.04]
 
 	times = []
 	pool = mp.Pool(n_cpu)
@@ -279,7 +279,7 @@ def time_running():
 		batch_times = []
 		for f in fracs:
 			t0 = perf_counter()
-			n = int(5000 + 1.5 * b)
+			n = 40000
 			run(n=n, pool=pool, processors=n_cpu, batch_size=b, chunk_size=int(b*f), save=False)
 			batch_times.append(n/(perf_counter()-t0)) # store iterations per second
 		times.append(batch_times)

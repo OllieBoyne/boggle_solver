@@ -69,7 +69,18 @@ def process_dict(src = r"CSW19"):
 	with open(os.path.join("dict", src+".json"), "w") as outfile:
 		json.dump(out, outfile)
 
+def save_tree(src = r"CSW19"):
+	"""Save .json of dictionary tree, for use in Javascript"""
+
+	d = Dictionary(src)
+	tree = d.tree
+
+	with open(os.path.join("online_interface", "tree.json"), "w") as outfile:
+		json.dump(tree , outfile)
+
 if __name__ == "__main__":
 	# process_dict()
-	d = Dictionary()
-	print(d.tree)
+	# d = Dictionary()
+	# print(d.tree)
+
+	save_tree()
