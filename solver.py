@@ -10,11 +10,15 @@ from time import perf_counter
 from boggle import Boggle
 from dict import Dictionary
 
+from utils import Timer
+timer = Timer()
+
+possible_moves = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1,-1], [1,0], [1,1]]
 
 def get_next_moves(x, y, width, used_tiles):
 	"""Yields coordinates of possible next letters
 	Does not allow for coordinates outside of the board, or repeated use of the same tile"""
-	for dx, dy in product(range(-1, 2), repeat=2):
+	for dx, dy in possible_moves:
 		X, Y = x + dx, y + dy
 		if 0 <= X < width and 0 <= Y < width and (X, Y) not in used_tiles:
 			yield X, Y
@@ -40,11 +44,11 @@ class Solver:
 		tree_head = self.d.tree
 		# starts contains the coordinates for each tile in the grid
 		all_words = {}
+
 		for x, y in starts:
 			c = board[y][x]
 			if c == "Q": c = "QU"
 			prev_node = tree_head[c] # guaranteed to already exist
-
 
 			# each word is stored as [word_string, current_coords, [used_tiles], prev_node]
 			first_word = [c, (x, y), [(x, y)], prev_node]
@@ -59,7 +63,10 @@ class Solver:
 					word_x, word_y = word[1]
 					used_tiles = word[2]
 					prev_node = word[3]
-					for i, j in get_next_moves(word_x, word_y, width, used_tiles):
+
+					next_moves = get_next_moves(word_x, word_y, width, set(used_tiles))
+
+					for i, j in next_moves:
 						new_c = board[j][i]
 						if new_c == "Q":
 							new_c = "QU"
@@ -68,7 +75,6 @@ class Solver:
 						if next_node is not None:
 							new_word = [word_string + new_c, (i, j), used_tiles + [(i, j)], next_node]
 							cur_words.append(new_word)
-
 							# check if this is a real word
 							# => has no children, or is in the dictionary
 							if not next_node or new_word[0] in self.d:
@@ -80,8 +86,14 @@ class Solver:
 		return all_words
 
 if __name__ == "__main__":
-	board = Boggle().gen()
+	board = Boggle()
 	s = Solver()
-	t1 = perf_counter()
-	print(s.solve(board))
-	print(f"Time to solve: {perf_counter() - t1}")
+	ts = []
+	N = 500
+	t0 = perf_counter()
+	for i in range(N):
+		s.solve(board.gen())
+		ts.append(perf_counter() - t0)
+		t0 = perf_counter()
+	print(f"Time to solve: {sum(ts)/len(ts)*1000:.1f}ms")
+	# print(timer.report(nits=N, make_dict=1))

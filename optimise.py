@@ -18,13 +18,13 @@ from tqdm import tqdm
 outloc = "outputs/best.txt"
 
 # Hyper params
-N = 50
-n_it = 500
+N = 20
+n_it = 3
 board_size = 5
 log_window = 10 # moving average window for log plot
 
 REGEN_NORM = 100 # Divide its since best by this to get fitness indicator
-RETURN_TO_BEST_AFTER = 25 # if this board hasn't improved for a certain amount of time, return to best for this board
+RETURN_TO_BEST_AFTER = 50 # if this board hasn't improved for a certain amount of time, return to best for this board
 
 # reroll dice with prob REROLL_COEFF * exp(- points / board_max)
 REROLL_COEFF = 0.08
@@ -36,6 +36,10 @@ MAX_SWAPS = 5 # max swaps in single it
 
 solver = Solver()
 boggle = Boggle()
+
+from utils import Timer
+
+board_timer = Timer()
 
 def layout_to_str(arr):
 	"""Convert array of size (board_size, board_size) to correct format string for solver"""
@@ -74,10 +78,14 @@ class Board:
 		self.it_since_best = 0 # iterations since previous best
 		self.eval_board()
 
-	def eval_board(self):
+	def eval_board(self, increment=True):
+		board_timer.add("_")
 		layout = self.layout
 		self.score = 0
-		sol = solver.solve(layout_to_str(layout))
+		layout_str = layout_to_str(layout)
+		board_timer.add("layout to str")
+		sol = solver.solve(layout_str)
+		board_timer.add("solve")
 
 		# compute point distribution
 		for word in sol:
@@ -89,14 +97,18 @@ class Board:
 				x, y = coord
 				self.points[y, x] += val
 
+		board_timer.add("points")
+
 		if self.score >= self.best_score:
 			self.best_score = self.score
 			self.best_layout = layout.copy()
 			self.best_dice = self.dice.copy()
 			self.it_since_best = 0  # reset counter
 
-		else:
+		elif increment:
 			self.it_since_best += 1
+
+		board_timer.add("eval best")
 
 		return self.score
 
@@ -122,9 +134,9 @@ class Board:
 		score_by_letter = np.zeros(letters_to_choose.shape)
 		for n, l in enumerate(letters_to_choose):
 			self.layout[y][x] = l
-			score_by_letter[n] = self.eval_board()
+			score_by_letter[n] = self.eval_board(increment=False)
 
-		prob_select = np.log(score_by_letter/(score_by_letter.min()))
+		prob_select = np.log(score_by_letter/(score_by_letter.min() + 1e-3))
 		prob_select = prob_select / prob_select.sum() # normalise to get 0 < p <= 1
 		selection = letters_to_choose[weighted_selection(prob_select)]
 
@@ -156,6 +168,8 @@ def run():
 	boards = [Board() for _ in range(N)] # change to N times
 	best = boards[0].copy() # best board
 
+	timer = Timer()
+
 	iterations = np.arange(n_it)
 	with tqdm(iterations) as tqdm_iterator:
 		for n in tqdm_iterator:
@@ -163,6 +177,8 @@ def run():
 			scores = [b.best_score for b in boards]
 			cur_mean = np.mean(scores) # track current mean best for evaluating fitness
 			upper_cutoff = np.percentile(scores, 90)
+
+			timer.add("stats")
 
 			for board in boards:
 				if board > best:
@@ -172,26 +188,33 @@ def run():
 					## make modifications
 					prob_reroll = REROLL_COEFF * np.exp(-board.points/board.points.max())
 					to_reroll = np.where(np.random.rand(board_size, board_size) < prob_reroll)
+					timer.add("prob reroll")
 
 					for y, x in zip(*to_reroll):
 						stats['rerolls'] += 1
 						board.reroll(x, y)
 
+					timer.add("reroll")
+
 					swap_corr = np.einsum("ij,kl->ijkl", board.points, board.points)
 					prob_swap = SWAP_COEFF * np.exp(-swap_corr / (board.points.max()**2))
 
 					to_swap = np.where(np.random.rand(*[board_size]*4) < prob_swap)
+					timer.add("prob swap")
+
 					for y1, x1, y2, x2 in zip(*to_swap):
 						stats['swaps'] += 1
 						board.swap(x1, y1, x2, y2)
 
+					timer.add("swap")
 					board.eval_board()
+					timer.add("eval board")
 
-					# Regenerate poorly performing boards
-					# any board in top 10% of performers is automatically not rejected
-					# boards with lower than mean score have increased chance of being regenerated
-					# the rate of regeneration increases with iterations
-					prob_regen =  (board.best_score < upper_cutoff) * np.exp(-(board.best_score / cur_mean) * (1/n_it**.5))
+				# Regenerate poorly performing boards
+				# any board in top 10% of performers is automatically not rejected
+				# boards with lower than mean score have increased chance of being regenerated
+				# the rate of regeneration increases with iterations
+				prob_regen = (board.best_score < upper_cutoff) * np.exp(-(board.best_score / cur_mean) * (1/(board.it_since_best+1)))
 
 				if np.random.rand() < prob_regen:
 					stats['regens'] += 1
@@ -202,6 +225,8 @@ def run():
 					stats['returns'] += 1
 					board.return_to_best()
 
+				timer.add("regens & returns")
+
 			scores = [b.best_score for b in boards]
 			board_stats = f"MAX BEST = {best.score:04d}, MIN BEST = {min(scores):04d}, MEAN BEST = {int(cur_mean):04d}, 10P = {int(upper_cutoff):04d}, "
 			stats_string = ", ".join([f"{k}:{n/N:.3f}" for k, n in stats.items()])
@@ -211,6 +236,10 @@ def run():
 			log['mean_best'] = log.get("mean_best", []) + [cur_mean]
 			log['upper_cutoff'] = log.get("upper_cutoff", []) + [upper_cutoff]
 
+
+	print(timer)
+	print("EVAL TIMER:")
+	print(board_timer)
 
 	best.save()
 
