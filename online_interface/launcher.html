@@ -1,30 +1,65 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" content="width=device-width, initial-scale=1">
     <title>Title</title>
+
+<style>
+.collapsible {
+  background-color: #b56d02;
+  color: white;
+  cursor: pointer;
+  padding: 18px;
+  width: 100%;
+  border: none;
+  text-align: left;
+  outline: none;
+  font-size: 15px;
+}
+
+.active, .collapsible:hover {
+  background-color: #f59300;
+}
+
+.content {
+  padding: 0 18px;
+  display: none;
+  overflow: hidden;
+  /*word-wrap: break-word;*/
+  background-color: #f59300;
+}
+</style>
+
+</head>
+<body>
 
     <p>Boggle solver</p>
 
     <form>
         <label for="fname">Input grid (5x5, each row on newline):</label><br>
-        Row 1 <input type="text" name="1" id="1" value="ABCDE"><br>
-        Row 2 <input type="text" name="2" id="2" value="ABCDE"><br>
-        Row 3 <input type="text" name="3" id="3" value="ABCDE"><br>
-        Row 4 <input type="text" name="4" id="4" value="ABCDE"><br>
-        Row 5 <input type="text" name="5" id="5" value="ABCDE">
+        Row 1 <input type="text" name="1" id="1" value="EASAN"><br>
+        Row 2 <input type="text" name="2" id="2" value="BLRME"><br>
+        Row 3 <input type="text" name="3" id="3" value="AUIEE"><br>
+        Row 4 <input type="text" name="4" id="4" value="STSNS"><br>
+        Row 5 <input type="text" name="5" id="5" value="NURIG">
 
     </form>
 
-    <p id="demo">X</p>
+    <button onclick="fullSolve()">Click me</button>
+
+    <div id="solutions">
+        <p id="score"></p>
+        <div id="breakdown">
+
+        </div>
+
+    </div>
 
     <script src="solver_javascript.js">
     </script>
 
-    <button onclick="viewBoard()">Click me</button>
 
-</head>
-<body>
+
 
 </body>
 </html>

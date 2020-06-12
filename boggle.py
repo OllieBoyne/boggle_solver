@@ -22,8 +22,9 @@ class Boggle:
 
         assert nblocks == width ** 2, f"nblocks = {nblocks} is not a square number. {board}"
 
-    def gen(self):
-        """Generate a width x width valid arrangement"""
+    def gen(self, return_dice = False):
+        """Generate a width x width valid arrangement.
+        return dice flag used to return the order of dice accessed, for optimisation"""
 
         out = [""] * self.width
 
@@ -35,9 +36,13 @@ class Boggle:
 
             out[row] += letter
 
-        return out
+        if return_dice:
+            return out, self.blocks.copy()
+        else:
+            return out
+
 
 
 if __name__ == "__main__":
     b = Boggle()
-    print(b.gen())
+    print(b.gen(return_dice=True))

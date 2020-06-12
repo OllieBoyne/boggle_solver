@@ -14,6 +14,8 @@ import multiprocessing as mp
 import os, json
 from time import perf_counter
 
+plt.rcParams['figure.dpi'] = 400
+
 def run(n, pool, board_id=None, processors=5, chunk_size=500, batch_size = 2000, outname="2003super5x5", save=True):
 	"""
 	Solves several generated boggle configs
@@ -118,9 +120,9 @@ def point_distribution(run="2003super5x5"):
 	[ax.axis("off") for ax in (ax_means, ax_std, ax_inactive)]
 
 	## plot means
-	board_heatmap(ax_means, means, cmap=cmap, title="Mean score")
-	board_heatmap(ax_std, vars, cmap=cmap, title="Standard dev")
-	board_heatmap(ax_inactive, inactive, cmap=cmap, title="Probability of\n0 points", cbar_fmt="pct")
+	board_heatmap(ax_means, means, cmap=cmap, title="Mean value")
+	board_heatmap(ax_std, vars, cmap=cmap, title="Standard deviation \n of value")
+	board_heatmap(ax_inactive, inactive, cmap=cmap, title="Probability of\n zero value", cbar_fmt="pct")
 
 	plt.subplots_adjust(wspace=0.5, left=.02, right=.93, top=1, bottom=0)
 	plt.show()
@@ -308,15 +310,16 @@ def time_viewer():
 if __name__ == "__main__":
 
 	## RUN
-	n_cpu = mp.cpu_count()
-	print("Number of processors: ", n_cpu)
+	# n_cpu = mp.cpu_count()
+	# print("Number of processors: ", n_cpu)
 	# pool = mp.Pool(n_cpu)
-	# run(n=60000, processors=n_cpu, outname="2003super5x5")
+	# run(1000000, pool, processors=n_cpu, outname="2003super5x5",
+	# 	batch_size=20000, chunk_size=700)
 
 	# time_running()
-	time_viewer()
+	# time_viewer()
 
-	# point_distribution()
+	point_distribution()
 	# word_distribution(run="2003super5x5")
 	# inactive_distribution()
 	# board_value_distribution(run="2003super5x5", load=False)
